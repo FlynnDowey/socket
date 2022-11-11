@@ -6,12 +6,14 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <pthread.h>
 
-#define INIT_FIFO1 "mkfifo fifo1"
-#define INIT_FIFO2 "mkfifo fifo2"
+#define INIT_FIFO1 "mkfifo /tmp/fifo1"
+#define INIT_FIFO2 "mkfifo /tmp/fifo2"
 #define MSG_MAX_LEN 1024
 
 static void runCommand(char* command);
+
 
 int main(int argc, char* argv[])
 {
@@ -25,13 +27,28 @@ int main(int argc, char* argv[])
     }
 
     if (child == 0) {
-        char* args[] = { "./serverDriver", "20001", "192.168.1.69", NULL };
+        // Run the client driver
+        // port #: 20001
+        // ip address: 192.168.1.69
+        char* args[] = { "./clientDriver", "20001", "192.168.1.69", NULL };
         if (execvp(args[0], args) == -1) {
             perror("cannot exec program.\n");
         }
 
     } else {
+        // Parent porgram will
+        // 1. One thread listening for doorbell to be pressed
+        // 2. One thread waiting for 1st thread to send message
+        // 3. "main" to read message from server
+        // Note all ^^ will need to be encapsulated
         sleep(1);
+        int fd_2 = open("/tmp/fifo2", O_WRONLY);
+        char* messageTx = "Hello from the BeagleBone!";
+        if (write(fd_2, messageTx, strlen(messageTx) + 1) < 0) {
+            perror("Cannot write to fifo\n");
+            exit(EXIT_FAILURE);
+        }
+
         int fd_1 = open("/tmp/fifo1", O_RDONLY);
         char messageRx[MSG_MAX_LEN];
         memset(messageRx, 0, sizeof(char) * MSG_MAX_LEN);
@@ -42,25 +59,6 @@ int main(int argc, char* argv[])
         printf("(driver) message says: %s\n", messageRx);
 
         close(fd_1);
-        // if (!strncmp(messageRx, "request", MSG_MAX_LEN)) {
-        //     // launch camera
-        //     int fd_2 = open("/tmp/fifo2", O_WRONLY);
-        //     char* messageTx = "okay";
-        //     if (write(fd_2, messageTx, strlen(messageTx) + 1) < 0) {
-        //         perror("Cannot write to fifo\n");
-        //         exit(EXIT_FAILURE);
-        //     }
-        //     close(fd_2);
-        // } else {
-        // printf("Unknown request\n");
-        int fd_2 = open("/tmp/fifo2", O_WRONLY);
-        char* messageTx = "Hello from raspberry pi!";
-        if (write(fd_2, messageTx, strlen(messageTx) + 1) < 0) {
-            perror("Cannot write to fifo\n");
-            exit(EXIT_FAILURE);
-        }
-        exit(EXIT_FAILURE);
-        // }
     }
     return 0;
 }

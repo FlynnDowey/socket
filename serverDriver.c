@@ -11,8 +11,8 @@
 
 // static bool isDone = false;
 
-#define FIFO_NAME1 "fifo1"
-#define FIFO_NAME2 "fifo2"
+#define FIFO_NAME1 "/tmp/fifo1"
+#define FIFO_NAME2 "/tmp/fifo2"
 #define MSG_MAX_LEN 1024
 
 int main(int argc, char* argv[])
@@ -31,13 +31,14 @@ int main(int argc, char* argv[])
         exit(EXIT_FAILURE);
     }
 
-    // while (!isDone) {
     char* messageRx = Server_getMessage();
     if (write(fd_1, messageRx, sizeof(char) * (strlen(messageRx) + 1)) < 0) {
         perror("server: Cannot write to fifo\n");
         exit(EXIT_FAILURE);
     }
-
+    close(fd_1);
+    
+    printf("(server) message says: %s\n", messageRx);
     free(messageRx);
 
     int fd_2 = open(FIFO_NAME2, O_RDONLY);
@@ -52,7 +53,6 @@ int main(int argc, char* argv[])
     }
     close(fd_2);
     Server_sendMessage(messageTx, strlen(messageTx) + 1);
-    // }
-    close(fd_1);
+
     Server_cleanup();
 }
