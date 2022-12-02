@@ -32,7 +32,7 @@ void Server_cleanup(void)
 char* Server_getMessage(void)
 {
     char* messageRx = malloc(MSG_MAX_SIZE * sizeof(messageRx));
-    //memset(messageRx, 0, MSG_MAX_SIZE);
+    // memset(messageRx, 0, MSG_MAX_SIZE);
     int bytesRx = recv(s_options.client_fd, messageRx, MSG_MAX_SIZE - 1, 0);
     if (bytesRx < 0) {
         perror("Error: cannot read message...\n");
@@ -47,6 +47,14 @@ void Server_sendMessage(char* messageTx, int size)
         exit(EXIT_FAILURE);
     }
 }
+void Server_sendMessageSize(int size)
+{
+    if (send(s_options.client_fd, &size, sizeof(int), 0) < 0) {
+        perror("Error: cannot send message...\n");
+        exit(EXIT_FAILURE);
+    }
+}
+
 void Server_listen(void)
 {
     memset(&s_server, 0, sizeof(s_server));

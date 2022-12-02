@@ -58,13 +58,24 @@ void Client_sendMessage(char* messageTx, int size)
         exit(EXIT_FAILURE);
     }
 }
-char* Client_getMessage(void)
+char* Client_getMessage(int size)
 {
-    char* messageRx = malloc(sizeof(char) * MSG_MAX_SIZE);
-    if (recv(s_options.socket_fd, messageRx, MSG_MAX_SIZE - 1, 0) < 0) {
+    // first message from
+    char* messageRx = malloc(sizeof(char) * size);
+    if (recv(s_options.socket_fd, messageRx, size - 1, 0) < 0) {
         perror("Error while receiving server's msg\n");
         exit(EXIT_FAILURE);
     }
-    messageRx[MSG_MAX_SIZE - 1] = '\0';
+    messageRx[size - 1] = '\0';
     return messageRx;
+}
+
+int Client_getMessageSize(void)
+{
+    int size = 0;
+    if (recv(s_options.socket_fd, &size, sizeof(int), 0) < 0) {
+        perror("Error while receiving server's msg\n");
+        exit(EXIT_FAILURE);
+    }
+    return size;
 }

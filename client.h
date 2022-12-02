@@ -5,6 +5,7 @@ void Client_init(int portNumber, char* ipAddr);
 void Client_connectToServer(void);
 void Client_disconnectFromServer(void);
 void Client_sendMessage(char* messageTx, int size);
-char* Client_getMessage(void);
+char* Client_getMessage(int size);
+int Client_getMessageSize(void);
 
 #endif
