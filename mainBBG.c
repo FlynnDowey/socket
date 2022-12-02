@@ -1,5 +1,6 @@
 #include "doorbell.h"
 #include "general.h"
+#include "photo.h"
 #include <fcntl.h>
 #include <pthread.h>
 #include <stdbool.h>
@@ -61,23 +62,29 @@ int main(int argc, char* argv[])
                 }
 
                 // wait for processing
+                sleep(2);
 
+                // read image size from driver
                 int fd_1 = open("/tmp/fifo1", O_RDONLY);
-                char messageRx[MSG_MAX_LEN];
-                memset(messageRx, 0, sizeof(char) * MSG_MAX_LEN);
-
-                // first message to recieve is the photo length
-                if (read(fd_1, messageRx, sizeof(char) * MSG_MAX_LEN) < 0) {
+                long imgSize = 0;
+                if (read(fd_1, imgSize, sizeof(long)) < 0) {
                     perror("cannot read from fifo\n");
                     exit(EXIT_FAILURE);
                 }
+                close(fd_1);
 
-                if (!strncmp(messageRx, ACCESS_GRANTED, MSG_MAX_LEN)) {
-                    // open the door
-                } else {
-                    printf("Error: %s\n", ACCESS_DENIED);
+                char imgBuffer[imgSize];
+                memset(imgBuffer, 0, sizeof(char) * imgSize);
+                // read image buffer from driver
+
+                int fd_1 = open("/tmp/fifo1", O_RDONLY);
+                if (read(fd_1, imgSize, sizeof(imgBuffer) * imgSize) < 0) {
+                    perror("cannot read from fifo\n");
+                    exit(EXIT_FAILURE);
                 }
                 close(fd_1);
+
+                Photo_saveImageBuffer(imgBuffer, imgSize);
 
                 // turn off led
                 Doorbell_turnLedOFF();

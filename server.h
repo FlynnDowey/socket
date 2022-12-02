@@ -6,6 +6,6 @@ void Server_cleanup(void);
 char* Server_getMessage(void);
 void Server_sendMessage(char* messageTx, int size);
 void Server_listen(void);
-void Server_sendMessageSize(int size);
+void Server_sendMessageSize(long size);
 
 #endif

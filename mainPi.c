@@ -37,7 +37,6 @@ int main(int argc, char* argv[])
             perror("cannot exec program.\n");
         }
     } else {
-        sleep(1);
         while (!isDone) {
             int fd_1 = open("/tmp/fifo1", O_RDONLY);
             char messageRx[MSG_MAX_LEN];
@@ -46,40 +45,59 @@ int main(int argc, char* argv[])
                 perror("cannot read from fifo\n");
                 exit(EXIT_FAILURE);
             }
-            printf("(driver) message says: %s\n", messageRx);
-
             close(fd_1);
 
-            pid_t embeddedChild = fork();
-            if (embeddedChild == (pid_t)0) {
+            pid_t child = fork();
+
+            if (child == (pid_t)0) {
                 char* args[] = { "./bash.sh", NULL };
                 if (execvp(args[0], args) == -1) {
                     perror("cannot exec program.\n");
                 }
             }
             sleep(5);
-
-            // get image name from python
-            char* photoName = Photo_getPictureName();
-            // printf("(main) %s\n", photoName);
-            if (photoName == NULL) {
-                perror("error");
-                exit(1);
+            int fd = open("/tmp/testpipe", O_RDONLY);
+            char filename[MSG_MAX_LEN];
+            memset(filename, 0, sizeof(char) * MSG_MAX_LEN);
+            if (read(fd, filename, sizeof(char) * MSG_MAX_LEN) < 0) {
+                perror("cannot read from fifo\n");
+                exit(EXIT_FAILURE);
             }
 
-            // send message to BBG
+            char* imgBuffer = Photo_getImageBuffer(filename);
+            long imgSize = Photo_getImageBufferLength();
+
+            // Send length of image buffer to driver
             int fd_2 = open("/tmp/fifo2", O_WRONLY);
             if (fd_2 < 0) {
                 perror("Error");
                 exit(1);
             }
-            if (write(fd_2, photoName, MSG_MAX_LEN) < 0) {
+
+            if (write(fd_2, imgSize, sizeof(imgSize)) < 0) {
                 perror("Cannot write to fifo\n");
                 exit(EXIT_FAILURE);
             }
             close(fd_2);
 
-            free(photoName);
+            // send image buffer to driver
+            int fd_2 = open("/tmp/fifo2", O_WRONLY);
+            if (fd_2 < 0) {
+                perror("Error");
+                exit(1);
+            }
+
+            if (write(fd_2, imgBuffer, sizeof(imgSize) * imgSize) < 0) {
+                perror("Cannot write to fifo\n");
+                exit(EXIT_FAILURE);
+            }
+            close(fd_2);
+
+            // free(imgBuffer);
+            // or set to NULL?
+
+
+            // free(photoName);
         }
     }
     return 0;

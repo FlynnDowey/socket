@@ -47,9 +47,9 @@ void Server_sendMessage(char* messageTx, int size)
         exit(EXIT_FAILURE);
     }
 }
-void Server_sendMessageSize(int size)
+void Server_sendMessageSize(long size)
 {
-    if (send(s_options.client_fd, &size, sizeof(int), 0) < 0) {
+    if (send(s_options.client_fd, &size, sizeof(long), 0) < 0) {
         perror("Error: cannot send message...\n");
         exit(EXIT_FAILURE);
     }

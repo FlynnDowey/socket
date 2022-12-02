@@ -4,83 +4,80 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <time.h>
 #include <unistd.h>
 
 // Adapted from https://stackoverflow.com/questions/13097375/sending-images-over-sockets
 
 #define FIFO_LOCATION "/tmp/testpipe"
 #define MAX_MSG_LEN 1024
-static int s_size = 0;
-static char s_name[MAX_MSG_LEN];
 
 const char* fileFormat = ".jpg";
+static long bufferSize = 0;
 
-static char* getMostRecentPicture(void);
 static char* removeWhitespaces(char* string);
 
-FILE* Photo_getPictureFile(char* filename)
+char* Photo_getImageBuffer(char* _filename)
 {
-    printf("(photo) %s\n", filename);
-    FILE* picture = fopen(filename, "rb");
-    if (picture == NULL) {
-        perror("cannot open picture\n");
+    // remove white spaces from end of string for proper
+    // file handling.
+    char* filename = removeWhitespaces(_filename);
+
+    // open the file as read binary
+    FILE* pFile = fopen(filename, "rb");
+    if (pFile == NULL) {
+        perror("error");
         exit(EXIT_FAILURE);
     }
-    fseek(picture, 0, SEEK_END);
-    s_size = ftell(picture);
-    assert(s_size);
-    fseek(picture, 0, SEEK_SET);
+    // seek to start of file
+    fseek(pFile, 0, SEEK_END);
+    long len = ftell(pFile);
+    assert(len);
+    bufferSize = len;
+    fseek(pFile, 0, SEEK_SET);
 
-    if (s_size < 0) {
-        printf("Error reading picture.\n");
+    // Copying image file to buffer
+    char* imgBuff = (char*)malloc(len);
+    ssize_t bytes_read = fread(imgBuff, 1, len, pFile);
+    if (bytes_read < 0) {
+        perror("Error: did not read any bytes\n");
+        exit(EXIT_FAILURE);
+    }
+    fclose(pFile);
+
+    return imgBuff;
+}
+
+long Photo_getImageBufferLength(void)
+{
+    return bufferSize;
+}
+
+void Photo_saveImageBuffer(char* imgBuffer, int len)
+{
+    time_t seconds;
+    time(&seconds);
+
+    char copyName[MAX_MSG_LEN];
+    memset(copyName, 0, MAX_MSG_LEN);
+    snprintf(copyName, MAX_MSG_LEN, "%ld%s", seconds, fileFormat);
+
+    printf("Saving copy image as %s\n", copyName);
+
+    FILE* pCopy = fopen(copyName, "wb");
+    if (pCopy == NULL) {
+        perror("error");
         exit(EXIT_FAILURE);
     }
 
-    return picture;
-}
-
-int Photo_getPictureSize(void)
-{
-    return s_size;
-}
-
-char* Photo_getPictureName(void)
-{
-    char* name = getMostRecentPicture();
-    if (name == NULL) {
-        printf("Error cannot find name of file.\n");
-        exit(1);
-    }
-    memset(s_name, 0, MAX_MSG_LEN);
-    strncpy(s_name, name, MAX_MSG_LEN);
-    // printf("s_name in photo is %s\n", s_name);
-    return name;
-}
-
-static char* getMostRecentPicture(void)
-{
-    int fd_2 = open(FIFO_LOCATION, O_RDONLY);
-    char* pictureName = malloc(sizeof(char) * MAX_MSG_LEN);
-    if (pictureName == NULL) {
-        printf("Cannot allocate memory\n");
-        exit(1);
-    }
-    memset(pictureName, 0, MAX_MSG_LEN);
-    pictureName[MAX_MSG_LEN - 1] = '\0';
-    if (read(fd_2, pictureName, sizeof(char) * MAX_MSG_LEN) < 0) {
-        perror("server: Cannot read fifo\n");
+    ssize_t bytes_write = fwrite(imgBuffer, 1, len, pCopy);
+    if (bytes_write < 0) {
+        perror("Error: did not write any bytes\n");
         exit(EXIT_FAILURE);
     }
-    char* newName = removeWhitespaces(pictureName);
-
-    // printf("(photo) strlen of picture name = %d\n", strlen(newName) + 1);
-
-    close(fd_2);
-    return newName;
+    fclose(pCopy);
 }
 
-// copied code from https://codeforwin.org/2016/04/c-program-to-trim-trailing-white-space-characters-in-string.html
-// used to trim extra spaces from fifo
 static char* removeWhitespaces(char* string)
 {
     int idx = -1;
