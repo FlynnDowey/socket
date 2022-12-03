@@ -1,4 +1,5 @@
 #include "client.h"
+#include "photo.h"
 #include <fcntl.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -10,66 +11,57 @@
 #include <unistd.h>
 
 #define FIFO_NAME1 "/tmp/fifo1"
-#define FIFO_NAME2 "/tmp/fifo2"
+#define FIFO_NAME2 "/tmp/fifo_ImgName"
 static bool isDone = false;
 #define MSG_MAX_LEN 1024
 
 int main(int argc, char* argv[])
 {
+    // init the socket for connection
     Client_init(atoi(argv[1]), argv[2]);
     Client_connectToServer();
 
     while (!isDone) {
-
-        int fd_2 = open(FIFO_NAME2, O_RDONLY);
-        if (fd_2 < 0) {
+        // open fifo between main and driver
+        int fd_1 = open(FIFO_NAME1, O_RDONLY);
+        if (fd_1 < 0) {
             perror("client: Cannot open fifo\n");
             exit(EXIT_FAILURE);
         }
         char messageTx[MSG_MAX_LEN];
-        if (read(fd_2, messageTx, sizeof(char) * MSG_MAX_LEN) < 0) {
+        if (read(fd_1, messageTx, sizeof(char) * MSG_MAX_LEN) < 0) {
             perror("client: Cannot read fifo\n");
             exit(EXIT_FAILURE);
         }
-        close(fd_2);
-
+        close(fd_1);
+        // send message across socket.
         Client_sendMessage(messageTx, strlen(messageTx) + 1);
-
-        int fd_1 = open(FIFO_NAME1, O_WRONLY);
-        if (fd_1 < 0) {
-            perror("client: Cannot open fifo\n");
-            exit(EXIT_FAILURE);
-        }
 
         // Read the image size from socket
         long imgSize = Client_getMessageSize();
-
-        // Read the image buffer from socket
         char* imgBuffer = Client_getMessage(imgSize);
 
-        // Send to main the size of image
-        int fd_1 = open(FIFO_NAME1, O_WRONLY);
-        if (fd_1 < 0) {
-            perror("client: Cannot open fifo\n");
-            exit(EXIT_FAILURE);
-        }
-        if (write(fd_1, imgSize, sizeof(long)) < 0) {
-            perror("client: Cannot write to fifo\n");
-            exit(EXIT_FAILURE);
-        }
-        
-        // Send to main the image buffer
-        int fd_1 = open(FIFO_NAME1, O_WRONLY);
-        if (fd_1 < 0) {
-            perror("client: Cannot open fifo\n");
-            exit(EXIT_FAILURE);
-        }
-        if (write(fd_1, imgBuffer, sizeof(imgBuffer) * imgSize) < 0) {
-            perror("client: Cannot write to fifo\n");
-            exit(EXIT_FAILURE);
-        }
+        sleep(1);
+        // save the image for processing
+        char* filename = Photo_saveImageBuffer(imgBuffer, imgSize);
 
         free(imgBuffer);
+
+        // open fifo to main
+        int fd_2 = open(FIFO_NAME2, O_WRONLY);
+        if (fd_2 < 0) {
+            perror("client: Cannot open fifo\n");
+            exit(EXIT_FAILURE);
+        }
+        // signal completion of image being saved.
+        if (write(fd_2, filename, strlen(filename) + 1) < 0) {
+            perror("client: Cannot write to fifo\n");
+            exit(EXIT_FAILURE);
+        }
+        close(fd_2);
+        free(filename);
+
+        // TODO: isDone feature
     }
     Client_disconnectFromServer();
 }

@@ -26,7 +26,7 @@ char* Photo_getImageBuffer(char* _filename)
     // open the file as read binary
     FILE* pFile = fopen(filename, "rb");
     if (pFile == NULL) {
-        perror("error");
+        perror("error(photo get buff)");
         exit(EXIT_FAILURE);
     }
     // seek to start of file
@@ -53,12 +53,13 @@ long Photo_getImageBufferLength(void)
     return bufferSize;
 }
 
-void Photo_saveImageBuffer(char* imgBuffer, int len)
+char* Photo_saveImageBuffer(char* imgBuffer, int len)
 {
     time_t seconds;
     time(&seconds);
 
-    char copyName[MAX_MSG_LEN];
+    //char copyName[MAX_MSG_LEN];
+    char* copyName = malloc(MAX_MSG_LEN);
     memset(copyName, 0, MAX_MSG_LEN);
     snprintf(copyName, MAX_MSG_LEN, "%ld%s", seconds, fileFormat);
 
@@ -66,7 +67,7 @@ void Photo_saveImageBuffer(char* imgBuffer, int len)
 
     FILE* pCopy = fopen(copyName, "wb");
     if (pCopy == NULL) {
-        perror("error");
+        perror("error (photo saving image)");
         exit(EXIT_FAILURE);
     }
 
@@ -76,7 +77,11 @@ void Photo_saveImageBuffer(char* imgBuffer, int len)
         exit(EXIT_FAILURE);
     }
     fclose(pCopy);
+
+    return copyName;
 }
+
+// copied code from https://codeforwin.org/2016/04/c-program-to-trim-trailing-white-space-characters-in-string.html
 
 static char* removeWhitespaces(char* string)
 {

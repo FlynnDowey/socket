@@ -1,6 +1,7 @@
 #include "client.h"
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,6 +30,7 @@ void Client_connectToServer(void)
 
     // Create socket:
     s_options.socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+    //setsockopt(s_options.socket_fd, IPPROTO_TCP, TCP_NODELAY, 1, 4);
 
     if (s_options.socket_fd < 0) {
         perror("Unable to create socket\n");
@@ -61,13 +63,14 @@ void Client_sendMessage(char* messageTx, int size)
 char* Client_getMessage(long size)
 {
     // first message from
-    char* messageRx = malloc(sizeof(char) * size);
-    if (recv(s_options.socket_fd, messageRx, size - 1, 0) < 0) {
+    char* message = malloc(sizeof(char) * size);
+    if (recv(s_options.socket_fd, message, size, 0) < 0) {
         perror("Error while receiving server's msg\n");
         exit(EXIT_FAILURE);
     }
-    messageRx[size - 1] = '\0';
-    return messageRx;
+    //fflush(s_options.socket_fd);
+    message[size - 1] = '\0';
+    return message;
 }
 
 long Client_getMessageSize(void)

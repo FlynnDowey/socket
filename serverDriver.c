@@ -14,7 +14,7 @@
 static bool isDone = false;
 
 #define FIFO_NAME1 "/tmp/fifo1"
-#define FIFO_NAME2 "/tmp/fifo2"
+#define FIFO_NAME2 "/tmp/fifo_ImgName"
 #define MSG_MAX_LEN 1024
 
 int main(int argc, char* argv[])
@@ -23,17 +23,19 @@ int main(int argc, char* argv[])
         printf("./testSocket port_number ip_address\n");
         exit(EXIT_FAILURE);
     }
+
+    // init the server for connection
     Server_init(atoi(argv[1]), argv[2]);
     Server_listen();
 
     while (!isDone) {
-
+        // open fifo between driver and main program
         int fd_1 = open(FIFO_NAME1, O_WRONLY);
         if (fd_1 < 0) {
             perror("server: Cannot open fifo\n");
             exit(EXIT_FAILURE);
         }
-
+        // once a message from the client is recieved, pipe it to main.
         char* messageRx = Server_getMessage();
         if (write(fd_1, messageRx, sizeof(char) * (strlen(messageRx) + 1)) < 0) {
             perror("server: Cannot write to fifo\n");
@@ -42,41 +44,25 @@ int main(int argc, char* argv[])
         close(fd_1);
         free(messageRx);
 
-        // Read the image buffer size from fifo
+        // open fifo and wait for main to send image filename
         int fd_2 = open(FIFO_NAME2, O_RDONLY);
-        if (fd_2 < 0) {
-            perror("server: Cannot open fifo\n");
+        char filename[MSG_MAX_LEN];
+        memset(filename, 0, sizeof(char) * MSG_MAX_LEN);
+        if (read(fd_2, filename, sizeof(char) * MSG_MAX_LEN) < 0) {
+            perror("cannot read from fifo\n");
             exit(EXIT_FAILURE);
         }
 
-        long imgSize = 0;
-        if (read(fd_2, imgSize, sizoef(imgSize)) < 0) {
-            perror("server: Cannot read fifo\n");
-            exit(EXIT_FAILURE);
-        }
-        close(fd_2);
+        // open image and copy to a buffer
+        char* imgBuffer = Photo_getImageBuffer(filename);
+        long imgSize = Photo_getImageBufferLength();
 
-        // Read the image buffer from fifo
-        int fd_2 = open(FIFO_NAME2, O_RDONLY);
-        if (fd_2 < 0) {
-            perror("server: Cannot open fifo\n");
-            exit(EXIT_FAILURE);
-        }
-
-        char* imgBuffer = NULL;
-        if (read(fd_2, imgBuffer, sizoef(imgBuffer) * imgSize) < 0) {
-            perror("server: Cannot read fifo\n");
-            exit(EXIT_FAILURE);
-        }
-        close(fd_2);
-
-        // send the image size to BBG via socket connection
+        // send image length first then byte array of the image
         Server_sendMessageSize(imgSize);
-        // send image buffer to BBG via socket connection
         Server_sendMessage(imgBuffer, imgSize);
 
-        free(imgBuffer); 
-
+        free(imgBuffer);
     }
+
     Server_cleanup();
 }

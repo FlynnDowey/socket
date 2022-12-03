@@ -5,7 +5,7 @@
 SOURCES_INTERFACE_BBG = doorbell.c gpio.c general.c mainBBG.c photo.c
 TARGET_INTERFACAE_BBG = mainBBG
 
-SOURCES_COM_BBG =  client.c clientDriver.c
+SOURCES_COM_BBG =  client.c clientDriver.c photo.c
 TARGET_COM_BBG = clientDriver
 
 SOURCES_INTERFACE_PI = mainPi.c general.c photo.c

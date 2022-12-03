@@ -14,8 +14,6 @@
 
 static bool isDone = false;
 
-#define INIT_FIFO1 "mkfifo /tmp/fifo1"
-#define INIT_FIFO2 "mkfifo /tmp/fifo2"
 #define MSG_MAX_LEN 1024
 #define PORT_NUMBER "20001"
 #define IP_ADDRESS "192.168.2.2"
@@ -23,10 +21,15 @@ static bool isDone = false;
 #define ACCESS_GRANTED "Access granted"
 #define ACCESS_DENIED "Access denied"
 
+#define CLIENT_COMMAND "./clientDriver"
+
+#define FIFO_NAME_1 "/tmp/fifo1"
+#define FIFO_NAME_2 "/tmp/fifo_ImgName"
+
 int main(int argc, char* argv[])
 {
-    General_runCommand(INIT_FIFO1);
-    General_runCommand(INIT_FIFO2);
+    General_runCommand("./makeFifo_1.sh");
+    General_runCommand("./makeFifo_2.sh");
 
     pid_t child = fork();
     if (child == -1) {
@@ -38,53 +41,43 @@ int main(int argc, char* argv[])
         // Run the client driver
         // port #: 20001
         // ip address: 192.168.2.2
-        char* args[] = { "./clientDriver", PORT_NUMBER, IP_ADDRESS, NULL };
+        char* args[] = { CLIENT_COMMAND, PORT_NUMBER, IP_ADDRESS, NULL };
         if (execvp(args[0], args) == -1) {
             perror("cannot exec program.\n");
         }
 
     } else {
-        // Parent porgram will
-        // 1. One thread listening for doorbell to be pressed
-        // 2. One thread waiting for 1st thread to send message
-        // 3. "main" to read message from server
-        // Note all ^^ will need to be encapsulated
         sleep(1);
+        //  init button for pressing
         Doorbell_init();
-
         while (!isDone) {
             if (Doorbell_isPressed()) {
-                int fd_2 = open("/tmp/fifo2", O_WRONLY);
+                // open fifo between main and client
+                int fd_1 = open(FIFO_NAME_1, O_WRONLY);
                 char* messageTx = "Someone is at the door!";
-                if (write(fd_2, messageTx, strlen(messageTx) + 1) < 0) {
+                if (write(fd_1, messageTx, strlen(messageTx) + 1) < 0) {
                     perror("Cannot write to fifo\n");
                     exit(EXIT_FAILURE);
                 }
+                close(fd_1);
 
                 // wait for processing
                 sleep(2);
 
-                // read image size from driver
-                int fd_1 = open("/tmp/fifo1", O_RDONLY);
-                long imgSize = 0;
-                if (read(fd_1, imgSize, sizeof(long)) < 0) {
-                    perror("cannot read from fifo\n");
+                // read image name from driver
+                int fd_2 = open(FIFO_NAME_2, O_RDONLY);
+                char filename[MSG_MAX_LEN];
+                memset(filename, 0, MSG_MAX_LEN);
+
+                if (read(fd_2, filename, MSG_MAX_LEN) < 0) {
+                    perror("(main)cannot read from fifo 2\n");
                     exit(EXIT_FAILURE);
                 }
-                close(fd_1);
+                close(fd_2);
 
-                char imgBuffer[imgSize];
-                memset(imgBuffer, 0, sizeof(char) * imgSize);
-                // read image buffer from driver
+                // process image
 
-                int fd_1 = open("/tmp/fifo1", O_RDONLY);
-                if (read(fd_1, imgSize, sizeof(imgBuffer) * imgSize) < 0) {
-                    perror("cannot read from fifo\n");
-                    exit(EXIT_FAILURE);
-                }
-                close(fd_1);
-
-                Photo_saveImageBuffer(imgBuffer, imgSize);
+                // end proccessing
 
                 // turn off led
                 Doorbell_turnLedOFF();

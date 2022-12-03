@@ -16,6 +16,6 @@ long Photo_getImageBufferLength(void);
 /// @brief Function write to jpeg file the contents of imgBuffer
 /// @param imgBuffer
 /// @param len
-void Photo_saveImageBuffer(char* imgBuffer, int len);
+char* Photo_saveImageBuffer(char* imgBuffer, int len);
 
 #endif
